@@ -22,9 +22,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SacerdoteClient interface {
-	Consultar(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*ConsultaStatus, error)
-	Sair(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*SaidaStatus, error)
-	ConsultarSaldo(ctx context.Context, in *SaldoConsulta, opts ...grpc.CallOption) (*SaldoCliente, error)
 	RegistrarTransacao(ctx context.Context, in *PedidoTransacao, opts ...grpc.CallOption) (*ResultadoTransacao, error)
 	ConsultarExtrato(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*Extrato, error)
 }
@@ -35,33 +32,6 @@ type sacerdoteClient struct {
 
 func NewSacerdoteClient(cc grpc.ClientConnInterface) SacerdoteClient {
 	return &sacerdoteClient{cc}
-}
-
-func (c *sacerdoteClient) Consultar(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*ConsultaStatus, error) {
-	out := new(ConsultaStatus)
-	err := c.cc.Invoke(ctx, "/Sacerdote/Consultar", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sacerdoteClient) Sair(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*SaidaStatus, error) {
-	out := new(SaidaStatus)
-	err := c.cc.Invoke(ctx, "/Sacerdote/Sair", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *sacerdoteClient) ConsultarSaldo(ctx context.Context, in *SaldoConsulta, opts ...grpc.CallOption) (*SaldoCliente, error) {
-	out := new(SaldoCliente)
-	err := c.cc.Invoke(ctx, "/Sacerdote/ConsultarSaldo", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *sacerdoteClient) RegistrarTransacao(ctx context.Context, in *PedidoTransacao, opts ...grpc.CallOption) (*ResultadoTransacao, error) {
@@ -86,9 +56,6 @@ func (c *sacerdoteClient) ConsultarExtrato(ctx context.Context, in *Habitante, o
 // All implementations must embed UnimplementedSacerdoteServer
 // for forward compatibility
 type SacerdoteServer interface {
-	Consultar(context.Context, *Habitante) (*ConsultaStatus, error)
-	Sair(context.Context, *Habitante) (*SaidaStatus, error)
-	ConsultarSaldo(context.Context, *SaldoConsulta) (*SaldoCliente, error)
 	RegistrarTransacao(context.Context, *PedidoTransacao) (*ResultadoTransacao, error)
 	ConsultarExtrato(context.Context, *Habitante) (*Extrato, error)
 	mustEmbedUnimplementedSacerdoteServer()
@@ -98,15 +65,6 @@ type SacerdoteServer interface {
 type UnimplementedSacerdoteServer struct {
 }
 
-func (UnimplementedSacerdoteServer) Consultar(context.Context, *Habitante) (*ConsultaStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Consultar not implemented")
-}
-func (UnimplementedSacerdoteServer) Sair(context.Context, *Habitante) (*SaidaStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Sair not implemented")
-}
-func (UnimplementedSacerdoteServer) ConsultarSaldo(context.Context, *SaldoConsulta) (*SaldoCliente, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ConsultarSaldo not implemented")
-}
 func (UnimplementedSacerdoteServer) RegistrarTransacao(context.Context, *PedidoTransacao) (*ResultadoTransacao, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegistrarTransacao not implemented")
 }
@@ -124,60 +82,6 @@ type UnsafeSacerdoteServer interface {
 
 func RegisterSacerdoteServer(s grpc.ServiceRegistrar, srv SacerdoteServer) {
 	s.RegisterService(&Sacerdote_ServiceDesc, srv)
-}
-
-func _Sacerdote_Consultar_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Habitante)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SacerdoteServer).Consultar(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Sacerdote/Consultar",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SacerdoteServer).Consultar(ctx, req.(*Habitante))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Sacerdote_Sair_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Habitante)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SacerdoteServer).Sair(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Sacerdote/Sair",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SacerdoteServer).Sair(ctx, req.(*Habitante))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Sacerdote_ConsultarSaldo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SaldoConsulta)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SacerdoteServer).ConsultarSaldo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Sacerdote/ConsultarSaldo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SacerdoteServer).ConsultarSaldo(ctx, req.(*SaldoConsulta))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Sacerdote_RegistrarTransacao_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -223,18 +127,6 @@ var Sacerdote_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "Sacerdote",
 	HandlerType: (*SacerdoteServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Consultar",
-			Handler:    _Sacerdote_Consultar_Handler,
-		},
-		{
-			MethodName: "Sair",
-			Handler:    _Sacerdote_Sair_Handler,
-		},
-		{
-			MethodName: "ConsultarSaldo",
-			Handler:    _Sacerdote_ConsultarSaldo_Handler,
-		},
 		{
 			MethodName: "RegistrarTransacao",
 			Handler:    _Sacerdote_RegistrarTransacao_Handler,

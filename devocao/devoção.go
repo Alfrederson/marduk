@@ -2,7 +2,6 @@ package devoção
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -40,52 +39,6 @@ func (c *Devoto) Start(address string) error {
 	c.SacerdoteClient = pb.NewSacerdoteClient(c.conn)
 	return nil
 }
-
-// faz alguma coisa exclusivamente em um arquivo.
-// adaptado da implementação em COBOL.
-func (c *Devoto) LockFile(filename string, exclusive func() error) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	mut, tem := c.locks[filename]
-	if !tem {
-		mut = &sync.Mutex{}
-		c.locks[filename] = mut
-	}
-	mut.Lock()
-	defer mut.Unlock()
-
-	res, err := c.SacerdoteClient.Consultar(context.Background(), &pb.Habitante{Id: filename})
-	// se a tranca tiver pego, então a gente manda soltar a tranca.
-	if err == nil && !res.Error {
-		defer func() {
-			res, err := c.SacerdoteClient.Sair(context.Background(), &pb.Habitante{Id: filename})
-			if res.Error {
-				panic("isso nunca vai acontecer.")
-			}
-			if err != nil {
-				panic(err)
-			}
-		}()
-	}
-	if err != nil {
-		return err
-	}
-	if res.Error {
-		return errors.New("o sacerdote disse algo incompreensível")
-	}
-	return exclusive()
-}
-
-// func (c *Devoto) ConsultarSaldo(clienteId string) (tabuas.Saldo, error) {
-// 	r, err := c.SacerdoteClient.ConsultarSaldo(context.Background(), &pb.SaldoConsulta{ClienteId: clienteId})
-// 	if err != nil {
-// 		return tabuas.Saldo{}, err
-// 	}
-// 	return tabuas.Saldo{
-// 		Limite: r.Limite,
-// 		Total:  r.Saldo,
-// 	}, nil
-// }
 
 func (c *Devoto) ConsultarExtrato(clienteId string, num int) (*tabuas.Extrato, error) {
 	r, err := c.SacerdoteClient.ConsultarExtrato(context.Background(), &pb.Habitante{Id: clienteId})

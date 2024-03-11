@@ -8,18 +8,7 @@ message Habitante {
     string id = 1;
 }
 
-message ConsultaStatus {
-    bool error = 1;
-}
-
-message SaidaStatus {
-    bool error = 1;
-}
-
 service Sacerdote {
-    rpc Consultar(Habitante) returns (ConsultaStatus){}
-    rpc Sair(Habitante) returns (SaidaStatus){}
-    rpc ConsultarSaldo(SaldoConsulta) returns (SaldoCliente){}
     rpc RegistrarTransacao(PedidoTransacao) returns (ResultadoTransacao){}
     rpc ConsultarExtrato(Habitante) returns (Extrato){}
 }
@@ -30,6 +19,7 @@ message PedidoTransacao {
     int64 valor = 3;
     string descricao = 4;
 }
+
 message ResultadoTransacao {
     int64 novoSaldo = 1;
     int64 limite = 2;
@@ -47,14 +37,4 @@ message Extrato {
     int64 saldo = 1;
     int64 limite = 2;
     repeated Transacao ultimas_transacoes = 3;
-}
-
-message SaldoConsulta {
-    string clienteId = 1;
-}
-
-message SaldoCliente {
-    int64 saldo = 1;
-    int64 limite = 2;
-    bool erro =3;
 }

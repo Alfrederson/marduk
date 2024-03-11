@@ -35,7 +35,6 @@ type sacerdote struct {
 	pb.SacerdoteServer
 	locks      map[string]*sync.Mutex
 	master     sync.Mutex
-	fila       sync.Mutex
 	alteracoes chan (*AlteracaoSaldo)
 }
 
@@ -84,16 +83,13 @@ func (f *sacerdote) ConsultarExtrato(ctx context.Context, req *pb.Habitante) (*p
 	// tranca a tábua de argila
 	m := f.trancar(req.Id)
 	defer m.Unlock()
-
 	conta, tem := contas[req.Id]
 	if !tem {
 		log.Println("sacerdote pede ao escriba para ler uma tábia ", req.Id)
 		conta = f.initConta(req.Id)
 		f.initRingBuffer(req.Id)
 	}
-
 	ultimasTransacoes := make([]*pb.Transacao, 0, 10)
-
 	for _, v := range extratos[req.Id].Unroll() {
 		t := v.(*tabuas.Transacao)
 		ultimasTransacoes = append(ultimasTransacoes, &pb.Transacao{
@@ -103,7 +99,6 @@ func (f *sacerdote) ConsultarExtrato(ctx context.Context, req *pb.Habitante) (*p
 			Descricao:   t.Descricao,
 		})
 	}
-
 	return &pb.Extrato{
 		Saldo:             conta.Saldo,
 		Limite:            conta.Limite,
@@ -132,37 +127,15 @@ func (f *sacerdote) initConta(clienteId string) *escriba.Conta {
 	return tabua
 }
 
-// func (f *sacerdote) ConsultarSaldo(ctx context.Context, req *pb.SaldoConsulta) (*pb.SaldoCliente, error) {
-// 	m := f.trancar(req.ClienteId)
-// 	defer m.Unlock()
-
-// 	conta, tem := contas[req.ClienteId]
-
-// 	// o sacerdote diz o número que ele tiver memorizado.
-// 	if !tem {
-// 		conta = f.initConta(req.ClienteId)
-// 		f.initRingBuffer(req.ClienteId)
-// 	}
-// 	return &pb.SaldoCliente{
-// 		Saldo:  conta.Saldo,
-// 		Limite: conta.Limite,
-// 	}, nil
-// }
-
 func (f *sacerdote) RegistrarTransacao(ctx context.Context, req *pb.PedidoTransacao) (*pb.ResultadoTransacao, error) {
 	m := f.trancar(req.ClienteId)
 	defer m.Unlock()
-
 	conta, tem := contas[req.ClienteId]
-	f.fila.Lock()
-	defer f.fila.Unlock()
-
 	if !tem {
 		log.Println("sacerdote pede ao escriba para ler uma tábua ", req.ClienteId)
 		conta = f.initConta(req.ClienteId)
 		f.initRingBuffer(req.ClienteId)
 	}
-
 	saldoAnterior := conta.Saldo
 	if req.Tipo == "c" {
 		conta.Saldo += req.Valor
@@ -182,57 +155,55 @@ func (f *sacerdote) RegistrarTransacao(ctx context.Context, req *pb.PedidoTransa
 		Motivo:      req.Descricao,
 		Limite:      conta.Limite,
 	}
-
 	extratos[req.ClienteId].Add(&tabuas.Transacao{
 		Valor:       req.Valor,
 		Tipo:        req.Tipo,
 		Descricao:   req.Descricao,
 		RealizadaEm: time.Now(),
 	})
-
 	return &pb.ResultadoTransacao{
 		NovoSaldo: conta.Saldo,
 		Limite:    conta.Limite,
 	}, nil
-
 }
 
 func (f *sacerdote) trancar(clienteId string) *sync.Mutex {
 	f.master.Lock()
+	defer f.master.Unlock()
 	mut, tem := f.locks[clienteId]
 	if !tem {
 		mut = &sync.Mutex{}
 		f.locks[clienteId] = mut
 	}
-	f.master.Unlock()
+	mut.Lock()
 	return mut
 }
 
 // começa a ler a tábua de argila da pessoa
-func (f *sacerdote) Consultar(ctx context.Context, req *pb.Habitante) (*pb.ConsultaStatus, error) {
-	f.master.Lock()
-	mut, tem := f.locks[req.Id]
-	if !tem {
-		mut = &sync.Mutex{}
-		f.locks[req.Id] = mut
-	}
-	f.master.Unlock()
+// func (f *sacerdote) Consultar(ctx context.Context, req *pb.Habitante) (*pb.ConsultaStatus, error) {
+// 	f.master.Lock()
+// 	mut, tem := f.locks[req.Id]
+// 	if !tem {
+// 		mut = &sync.Mutex{}
+// 		f.locks[req.Id] = mut
+// 	}
+// 	f.master.Unlock()
 
-	defer mut.Lock()
-	return &pb.ConsultaStatus{Error: false}, nil
-}
+// 	defer mut.Lock()
+// 	return &pb.ConsultaStatus{Error: false}, nil
+// }
 
-func (f *sacerdote) Sair(ctx context.Context, req *pb.Habitante) (*pb.SaidaStatus, error) {
-	f.master.Lock()
-	defer f.master.Unlock()
-	mut, tem := f.locks[req.Id]
-	if !tem {
-		return &pb.SaidaStatus{Error: true}, nil
-	}
+// func (f *sacerdote) Sair(ctx context.Context, req *pb.Habitante) (*pb.SaidaStatus, error) {
+// 	f.master.Lock()
+// 	defer f.master.Unlock()
+// 	mut, tem := f.locks[req.Id]
+// 	if !tem {
+// 		return &pb.SaidaStatus{Error: true}, nil
+// 	}
 
-	defer mut.Unlock()
-	return &pb.SaidaStatus{Error: false}, nil
-}
+// 	defer mut.Unlock()
+// 	return &pb.SaidaStatus{Error: false}, nil
+// }
 
 func main() {
 	listener, err := net.Listen("tcp", "0.0.0.0:50051")

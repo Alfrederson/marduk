@@ -13,24 +13,19 @@ import (
 )
 
 func main() {
-	flockerUrl := os.Args[1]
+	endereçoSacerdote := os.Args[1]
 	port := os.Args[2]
 
 	f := devoção.Devoto{}
-	err := f.Start(flockerUrl)
+	err := f.Start(endereçoSacerdote)
 	if err != nil {
-		log.Fatalf("não consegui escutar o sacerdote porque %v", err)
+		log.Fatalf("o devoto conseguiu escutar o sacerdote porque %v", err)
 	}
-
-	log.Println("estou escutando o sacerdote")
+	defer f.Stop()
+	log.Println("o devoto está escutando o sacerdote")
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
-
-	// app.Use(logger.New(logger.Config{
-	// 	Output: os.Stdout,
-	// }))
-
 	app.Post("/clientes/:id/transacoes", func(c *fiber.Ctx) error {
 		req := tabuas.Transacao{}
 		if err := c.BodyParser(&req); err != nil {
