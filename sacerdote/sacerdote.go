@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/Alfrederson/crebitos/escriba"
 	pb "github.com/Alfrederson/crebitos/proto"
 	"github.com/Alfrederson/crebitos/tabuas"
+	"github.com/Alfrederson/crebitos/templo"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -40,6 +42,12 @@ type sacerdote struct {
 func (f *sacerdote) init() *sacerdote {
 	f.locks = make(map[string]*sync.Mutex, 10)
 	f.alteracoes = make(chan *AlteracaoSaldo)
+
+	templo.Inicializar()
+	for i := 1; i < 6; i++ {
+		f.initRingBuffer(fmt.Sprintf("%d", i))
+		f.initConta(fmt.Sprintf("%d", i))
+	}
 
 	go func() {
 		for alteracao := range f.alteracoes {
@@ -73,15 +81,14 @@ func (f *sacerdote) init() *sacerdote {
 }
 
 func (f *sacerdote) ConsultarExtrato(ctx context.Context, req *pb.Habitante) (*pb.Extrato, error) {
-	conta, tem := contas[req.Id]
-	f.fila.Lock()
-	defer f.fila.Unlock()
+	// tranca a tábua de argila
+	m := f.trancar(req.Id)
+	defer m.Unlock()
 
+	conta, tem := contas[req.Id]
 	if !tem {
 		log.Println("sacerdote pede ao escriba para ler uma tábia ", req.Id)
-		tabua := escriba.LerConta(req.Id)
-		contas[req.Id] = tabua
-		conta = tabua
+		conta = f.initConta(req.Id)
 		f.initRingBuffer(req.Id)
 	}
 
@@ -125,23 +132,27 @@ func (f *sacerdote) initConta(clienteId string) *escriba.Conta {
 	return tabua
 }
 
-func (f *sacerdote) ConsultarSaldo(ctx context.Context, req *pb.SaldoConsulta) (*pb.SaldoCliente, error) {
-	conta, tem := contas[req.ClienteId]
-	f.fila.Lock()
-	defer f.fila.Unlock()
+// func (f *sacerdote) ConsultarSaldo(ctx context.Context, req *pb.SaldoConsulta) (*pb.SaldoCliente, error) {
+// 	m := f.trancar(req.ClienteId)
+// 	defer m.Unlock()
 
-	// o sacerdote diz o número que ele tiver memorizado.
-	if !tem {
-		conta = f.initConta(req.ClienteId)
-		f.initRingBuffer(req.ClienteId)
-	}
-	return &pb.SaldoCliente{
-		Saldo:  conta.Saldo,
-		Limite: conta.Limite,
-	}, nil
-}
+// 	conta, tem := contas[req.ClienteId]
 
-func (f *sacerdote) MudarSaldo(ctx context.Context, req *pb.SaldoAtualizacao) (*pb.SaldoCliente, error) {
+// 	// o sacerdote diz o número que ele tiver memorizado.
+// 	if !tem {
+// 		conta = f.initConta(req.ClienteId)
+// 		f.initRingBuffer(req.ClienteId)
+// 	}
+// 	return &pb.SaldoCliente{
+// 		Saldo:  conta.Saldo,
+// 		Limite: conta.Limite,
+// 	}, nil
+// }
+
+func (f *sacerdote) RegistrarTransacao(ctx context.Context, req *pb.PedidoTransacao) (*pb.ResultadoTransacao, error) {
+	m := f.trancar(req.ClienteId)
+	defer m.Unlock()
+
 	conta, tem := contas[req.ClienteId]
 	f.fila.Lock()
 	defer f.fila.Unlock()
@@ -152,38 +163,49 @@ func (f *sacerdote) MudarSaldo(ctx context.Context, req *pb.SaldoAtualizacao) (*
 		f.initRingBuffer(req.ClienteId)
 	}
 
+	saldoAnterior := conta.Saldo
+	if req.Tipo == "c" {
+		conta.Saldo += req.Valor
+	}
+	if req.Tipo == "d" {
+		if (conta.Saldo+conta.Limite)-req.Valor < 0 {
+			return &pb.ResultadoTransacao{
+				Erro: tabuas.E_LIMITE_INSUFICIENTE,
+			}, nil
+		}
+		conta.Saldo -= req.Valor
+	}
 	f.alteracoes <- &AlteracaoSaldo{
 		ContaId:     req.ClienteId,
-		AntigoValor: conta.Saldo,
-		NovoValor:   req.NovoSaldo,
-		Motivo:      req.Motivo,
+		AntigoValor: saldoAnterior,
+		NovoValor:   conta.Saldo,
+		Motivo:      req.Descricao,
 		Limite:      conta.Limite,
 	}
 
-	var tipo string
-	var valor int64
-	if req.NovoSaldo > conta.Saldo {
-		tipo = "c"
-		valor = req.NovoSaldo - conta.Saldo
-	} else {
-		tipo = "d"
-		valor = conta.Saldo - req.NovoSaldo
-	}
-
 	extratos[req.ClienteId].Add(&tabuas.Transacao{
-		Valor:       valor,
-		Tipo:        tipo,
-		Descricao:   req.Motivo,
+		Valor:       req.Valor,
+		Tipo:        req.Tipo,
+		Descricao:   req.Descricao,
 		RealizadaEm: time.Now(),
 	})
 
-	conta.Saldo = req.NovoSaldo
-
-	return &pb.SaldoCliente{
-		Saldo:  conta.Saldo,
-		Limite: conta.Limite,
+	return &pb.ResultadoTransacao{
+		NovoSaldo: conta.Saldo,
+		Limite:    conta.Limite,
 	}, nil
 
+}
+
+func (f *sacerdote) trancar(clienteId string) *sync.Mutex {
+	f.master.Lock()
+	mut, tem := f.locks[clienteId]
+	if !tem {
+		mut = &sync.Mutex{}
+		f.locks[clienteId] = mut
+	}
+	f.master.Unlock()
+	return mut
 }
 
 // começa a ler a tábua de argila da pessoa

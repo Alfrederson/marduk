@@ -25,7 +25,7 @@ type SacerdoteClient interface {
 	Consultar(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*ConsultaStatus, error)
 	Sair(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*SaidaStatus, error)
 	ConsultarSaldo(ctx context.Context, in *SaldoConsulta, opts ...grpc.CallOption) (*SaldoCliente, error)
-	MudarSaldo(ctx context.Context, in *SaldoAtualizacao, opts ...grpc.CallOption) (*SaldoCliente, error)
+	RegistrarTransacao(ctx context.Context, in *PedidoTransacao, opts ...grpc.CallOption) (*ResultadoTransacao, error)
 	ConsultarExtrato(ctx context.Context, in *Habitante, opts ...grpc.CallOption) (*Extrato, error)
 }
 
@@ -64,9 +64,9 @@ func (c *sacerdoteClient) ConsultarSaldo(ctx context.Context, in *SaldoConsulta,
 	return out, nil
 }
 
-func (c *sacerdoteClient) MudarSaldo(ctx context.Context, in *SaldoAtualizacao, opts ...grpc.CallOption) (*SaldoCliente, error) {
-	out := new(SaldoCliente)
-	err := c.cc.Invoke(ctx, "/Sacerdote/MudarSaldo", in, out, opts...)
+func (c *sacerdoteClient) RegistrarTransacao(ctx context.Context, in *PedidoTransacao, opts ...grpc.CallOption) (*ResultadoTransacao, error) {
+	out := new(ResultadoTransacao)
+	err := c.cc.Invoke(ctx, "/Sacerdote/RegistrarTransacao", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ type SacerdoteServer interface {
 	Consultar(context.Context, *Habitante) (*ConsultaStatus, error)
 	Sair(context.Context, *Habitante) (*SaidaStatus, error)
 	ConsultarSaldo(context.Context, *SaldoConsulta) (*SaldoCliente, error)
-	MudarSaldo(context.Context, *SaldoAtualizacao) (*SaldoCliente, error)
+	RegistrarTransacao(context.Context, *PedidoTransacao) (*ResultadoTransacao, error)
 	ConsultarExtrato(context.Context, *Habitante) (*Extrato, error)
 	mustEmbedUnimplementedSacerdoteServer()
 }
@@ -107,8 +107,8 @@ func (UnimplementedSacerdoteServer) Sair(context.Context, *Habitante) (*SaidaSta
 func (UnimplementedSacerdoteServer) ConsultarSaldo(context.Context, *SaldoConsulta) (*SaldoCliente, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConsultarSaldo not implemented")
 }
-func (UnimplementedSacerdoteServer) MudarSaldo(context.Context, *SaldoAtualizacao) (*SaldoCliente, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MudarSaldo not implemented")
+func (UnimplementedSacerdoteServer) RegistrarTransacao(context.Context, *PedidoTransacao) (*ResultadoTransacao, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegistrarTransacao not implemented")
 }
 func (UnimplementedSacerdoteServer) ConsultarExtrato(context.Context, *Habitante) (*Extrato, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ConsultarExtrato not implemented")
@@ -180,20 +180,20 @@ func _Sacerdote_ConsultarSaldo_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Sacerdote_MudarSaldo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SaldoAtualizacao)
+func _Sacerdote_RegistrarTransacao_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PedidoTransacao)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SacerdoteServer).MudarSaldo(ctx, in)
+		return srv.(SacerdoteServer).RegistrarTransacao(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Sacerdote/MudarSaldo",
+		FullMethod: "/Sacerdote/RegistrarTransacao",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SacerdoteServer).MudarSaldo(ctx, req.(*SaldoAtualizacao))
+		return srv.(SacerdoteServer).RegistrarTransacao(ctx, req.(*PedidoTransacao))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -236,8 +236,8 @@ var Sacerdote_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Sacerdote_ConsultarSaldo_Handler,
 		},
 		{
-			MethodName: "MudarSaldo",
-			Handler:    _Sacerdote_MudarSaldo_Handler,
+			MethodName: "RegistrarTransacao",
+			Handler:    _Sacerdote_RegistrarTransacao_Handler,
 		},
 		{
 			MethodName: "ConsultarExtrato",

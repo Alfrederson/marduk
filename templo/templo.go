@@ -8,9 +8,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
-	devoção "github.com/Alfrederson/crebitos/devocao"
+	devocao "github.com/Alfrederson/crebitos/devocao"
 	"github.com/Alfrederson/crebitos/escriba"
 	"github.com/Alfrederson/crebitos/tabuas"
 )
@@ -20,35 +19,12 @@ type Conta struct {
 	Saldo  int64
 }
 
-const (
-	E_CLIENTE_DESCONHECIDO      = 1
-	E_LIMITE_INSUFICIENTE       = 2
-	E_SACERDOTE_FOI_AO_BANHEIRO = 3
-)
-
-type ErroTransacao struct {
-	Codigo int
-}
-
-func (e ErroTransacao) Error() string {
-	switch e.Codigo {
-	case E_CLIENTE_DESCONHECIDO:
-		return "cliente desconhecido na aldeia"
-	case E_LIMITE_INSUFICIENTE:
-		return "cliente sem crédito"
-	case E_SACERDOTE_FOI_AO_BANHEIRO:
-		return "sacerdote foi ao banheiro"
-	default:
-		return "não sei o que aconteceu"
-	}
-}
-
-func InterpretarSonho(e error) *ErroTransacao {
-	erro, ok := e.(ErroTransacao)
+func InterpretarSonho(e error) *tabuas.ErroTransacao {
+	erro, ok := e.(tabuas.ErroTransacao)
 	if ok {
 		return &erro
 	}
-	return &ErroTransacao{}
+	return &tabuas.ErroTransacao{}
 }
 
 type ResultadoTransacao struct {
@@ -117,76 +93,39 @@ func Inicializar() {
 	}
 }
 
-func Anotar(devoto *devoção.Devoto, clienteId string, t *tabuas.Transacao) (*ResultadoTransacao, error) {
+func Anotar(devoto *devocao.Devoto, clienteId string, t *tabuas.Transacao) (*ResultadoTransacao, error) {
 	_, tem := contas[clienteId]
 	if !tem {
-		return nil, ErroTransacao{E_CLIENTE_DESCONHECIDO}
+		return nil, tabuas.ErroTransacao{Codigo: tabuas.E_CLIENTE_DESCONHECIDO}
 	}
 
-	var saldo int64
-	var limite int64
 	// leia o registro dos bens e os limites do habitante da aldeia
-	resposta, err := devoto.ConsultarSaldo(clienteId)
+	resposta, err := devoto.RegistrarTransacao(
+		clienteId,
+		t.Tipo,
+		t.Valor,
+		t.Descricao,
+	)
 	if err != nil {
 		return nil, err
 	}
-	saldo = resposta.Saldo
-	limite = resposta.Limite
-	switch t.Tipo {
-	case TIPO_CREDITO:
-		saldo += t.Valor
-	case TIPO_DEBITO:
-		if saldo+limite-t.Valor < 0 {
-			return nil, ErroTransacao{E_LIMITE_INSUFICIENTE}
-		}
-		saldo -= t.Valor
-	}
-	devoto.MudarSaldo(clienteId, saldo, t.Descricao)
 
-	if err != nil {
-		return nil, err
-	}
 	return &ResultadoTransacao{
-		Limite: int64(limite),
-		Saldo:  int64(saldo),
+		Limite: int64(resposta.Limite),
+		Saldo:  int64(resposta.Total),
 	}, nil
 }
 
-type Saldo struct {
-	Total  int64     `json:"total"`
-	Data   time.Time `json:"data_extrato"`
-	Limite int64     `json:"limite"`
-}
-
-type Extrato struct {
-	Saldo              Saldo               `json:"saldo"`
-	UltimasTransacaoes []*tabuas.Transacao `json:"ultimas_transacoes"`
-}
-
-func ConsultarExtrato(devoto *devoção.Devoto, clienteId string, num int) (*Extrato, error) {
+func ConsultarExtrato(devoto *devocao.Devoto, clienteId string, num int) (*tabuas.Extrato, error) {
 	_, tem := contas[clienteId]
 	if !tem {
-		return nil, ErroTransacao{E_CLIENTE_DESCONHECIDO}
+		return nil, tabuas.ErroTransacao{Codigo: tabuas.E_CLIENTE_DESCONHECIDO}
 	}
-	saldo, err := devoto.ConsultarSaldo(clienteId)
+
+	extrato, err := devoto.ConsultarExtrato(clienteId, num)
 	if err != nil {
-		return nil, ErroTransacao{E_SACERDOTE_FOI_AO_BANHEIRO}
-	}
-	resultado := &Extrato{
-		Saldo: Saldo{
-			Total:  saldo.Saldo,
-			Limite: saldo.Limite,
-			Data:   time.Now(),
-		},
-		UltimasTransacaoes: make([]*tabuas.Transacao, 0),
+		return nil, tabuas.ErroTransacao{Codigo: tabuas.E_SACERDOTE_FOI_AO_BANHEIRO}
 	}
 
-	ultimas, err := devoto.UltimasTransacaoes(clienteId, num)
-	if err != nil {
-		return nil, err
-	}
-	resultado.UltimasTransacaoes = ultimas
-
-	return resultado, nil
-
+	return extrato, nil
 }

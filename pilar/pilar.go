@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -24,11 +23,6 @@ func main() {
 	}
 
 	log.Println("estou escutando o sacerdote")
-	f.LockFile("zigurat", func() error {
-		log.Println("")
-		templo.Inicializar()
-		return nil
-	})
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
@@ -52,21 +46,17 @@ func main() {
 		if len(req.Descricao) < 1 || len(req.Descricao) > 10 {
 			return c.SendStatus(422)
 		}
-		var resultadoTransacao *templo.ResultadoTransacao
-		err := f.LockFile(c.Params("id"), func() error {
-			resultadoTransacao, err = templo.Anotar(
-				&f,
-				c.Params("id"),
-				&req,
-			)
-			return err
-		})
+		resultadoTransacao, err := templo.Anotar(
+			&f,
+			c.Params("id"),
+			&req,
+		)
 		if err != nil {
 			e := templo.InterpretarSonho(err)
 			switch e.Codigo {
-			case templo.E_CLIENTE_DESCONHECIDO:
+			case tabuas.E_CLIENTE_DESCONHECIDO:
 				return c.Status(404).JSON(e.Error())
-			case templo.E_LIMITE_INSUFICIENTE:
+			case tabuas.E_LIMITE_INSUFICIENTE:
 				return c.Status(422).JSON(e.Error())
 			}
 		}
@@ -74,25 +64,11 @@ func main() {
 	})
 	app.Get("/clientes/:id/extrato", func(c *fiber.Ctx) error {
 		clientId := c.Params("id")
-		var resultado *templo.Extrato
-		err := f.LockFile(clientId, func() error {
-			if extrato, err := templo.ConsultarExtrato(&f, clientId, 10); err != nil {
-				return err
-			} else {
-				resultado = extrato
-				return nil
-			}
-		})
-		if err != nil {
-			log.Println(err)
+		if extrato, err := templo.ConsultarExtrato(&f, clientId, 10); err != nil {
 			return c.Status(404).JSON(err)
+		} else {
+			return c.Status(200).JSON(extrato)
 		}
-		return c.Status(200).JSON(resultado)
-	})
-	app.Get("/reset", func(c *fiber.Ctx) error {
-		os.Remove(filepath.Join("tabuas", "zigurat"))
-		templo.Inicializar()
-		return c.Status(200).SendString("ok")
 	})
 	log.Fatal(app.Listen("0.0.0.0:" + port))
 }

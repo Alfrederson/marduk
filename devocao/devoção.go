@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	pb "github.com/Alfrederson/crebitos/proto"
 	"github.com/Alfrederson/crebitos/tabuas"
@@ -75,42 +76,58 @@ func (c *Devoto) LockFile(filename string, exclusive func() error) error {
 	return exclusive()
 }
 
-func (c *Devoto) ConsultarSaldo(clienteId string) (tabuas.Saldo, error) {
-	r, err := c.SacerdoteClient.ConsultarSaldo(context.Background(), &pb.SaldoConsulta{ClienteId: clienteId})
-	if err != nil {
-		return tabuas.Saldo{}, err
-	}
-	return tabuas.Saldo{
-		Limite: r.Limite,
-		Saldo:  r.Saldo,
-	}, nil
-}
+// func (c *Devoto) ConsultarSaldo(clienteId string) (tabuas.Saldo, error) {
+// 	r, err := c.SacerdoteClient.ConsultarSaldo(context.Background(), &pb.SaldoConsulta{ClienteId: clienteId})
+// 	if err != nil {
+// 		return tabuas.Saldo{}, err
+// 	}
+// 	return tabuas.Saldo{
+// 		Limite: r.Limite,
+// 		Total:  r.Saldo,
+// 	}, nil
+// }
 
-func (c *Devoto) UltimasTransacaoes(clienteId string, num int) ([]*tabuas.Transacao, error) {
+func (c *Devoto) ConsultarExtrato(clienteId string, num int) (*tabuas.Extrato, error) {
 	r, err := c.SacerdoteClient.ConsultarExtrato(context.Background(), &pb.Habitante{Id: clienteId})
 	if err != nil {
-		return make([]*tabuas.Transacao, 0), err
+		return nil, err
 	}
-	transacoes := make([]*tabuas.Transacao, 0, num)
+	resultado := tabuas.Extrato{
+		Saldo: tabuas.Saldo{
+			Limite: r.Limite,
+			Total:  r.Saldo,
+			Data:   time.Now(),
+		},
+		UltimasTransacaoes: make([]*tabuas.Transacao, 0, num),
+	}
 	for _, v := range r.UltimasTransacoes {
-		transacoes = append(transacoes, &tabuas.Transacao{
+		resultado.UltimasTransacaoes = append(resultado.UltimasTransacaoes, &tabuas.Transacao{
 			Valor:       v.Valor,
 			Descricao:   v.Descricao,
 			RealizadaEm: v.RealizadaEm.AsTime(),
 			Tipo:        v.Tipo,
 		})
 	}
-	return transacoes, nil
+	return &resultado, nil
 }
 
-func (c *Devoto) MudarSaldo(clientId string, novoSaldo int64, motivo string) (tabuas.Saldo, error) {
-	r, err := c.SacerdoteClient.MudarSaldo(context.Background(), &pb.SaldoAtualizacao{ClienteId: clientId, NovoSaldo: novoSaldo, Motivo: motivo})
+func (c *Devoto) RegistrarTransacao(clientId string, tipo string, valor int64, motivo string) (tabuas.Saldo, error) {
+	r, err := c.SacerdoteClient.RegistrarTransacao(context.Background(), &pb.PedidoTransacao{
+		ClienteId: clientId,
+		Tipo:      tipo,
+		Descricao: motivo,
+		Valor:     valor,
+	})
+
 	if err != nil {
 		return tabuas.Saldo{}, err
 	}
+	if r.Erro != 0 {
+		return tabuas.Saldo{}, tabuas.ErroTransacao{Codigo: int(r.Erro)}
+	}
 	return tabuas.Saldo{
 		Limite: r.Limite,
-		Saldo:  r.Saldo,
+		Total:  r.NovoSaldo,
 	}, nil
 }
 

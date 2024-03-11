@@ -20,8 +20,20 @@ service Sacerdote {
     rpc Consultar(Habitante) returns (ConsultaStatus){}
     rpc Sair(Habitante) returns (SaidaStatus){}
     rpc ConsultarSaldo(SaldoConsulta) returns (SaldoCliente){}
-    rpc MudarSaldo(SaldoAtualizacao) returns (SaldoCliente){}
+    rpc RegistrarTransacao(PedidoTransacao) returns (ResultadoTransacao){}
     rpc ConsultarExtrato(Habitante) returns (Extrato){}
+}
+
+message PedidoTransacao {
+    string clienteId=1;
+    string tipo = 2;
+    int64 valor = 3;
+    string descricao = 4;
+}
+message ResultadoTransacao {
+    int64 novoSaldo = 1;
+    int64 limite = 2;
+    int32 erro = 3;
 }
 
 message Transacao {
@@ -41,13 +53,8 @@ message SaldoConsulta {
     string clienteId = 1;
 }
 
-message SaldoAtualizacao {
-    string clienteId = 1;
-    string motivo=2;
-    int64 novoSaldo=3;
-}
-
 message SaldoCliente {
     int64 saldo = 1;
     int64 limite = 2;
+    bool erro =3;
 }
