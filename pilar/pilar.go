@@ -1,8 +1,7 @@
-package main
+package pilar
 
 import (
 	"log"
-	"os"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,8 +11,7 @@ import (
 	"github.com/Alfrederson/crebitos/templo"
 )
 
-func main() {
-	port := os.Args[1]
+func Pilar(port string) {
 	f := devoção.Devoto{}
 	log.Println("o devoto está presente para anotar as transações")
 	app := fiber.New(fiber.Config{

@@ -9,8 +9,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o exe/pilar -ldflags '-extldflags "-static"' pilar/pilar.go
-RUN CGO_ENABLED=0 go build -o exe/viga -ldflags '-extldflags "-static"' viga/viga.go
+RUN CGO_ENABLED=0 go build -o exe/zigurat -ldflags '-extldflags "-static"' .
 
 FROM gcr.io/distroless/static-debian11
 WORKDIR /

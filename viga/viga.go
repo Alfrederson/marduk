@@ -1,20 +1,17 @@
-// a função da viga é distribuir a carga em 2 pilares.
-package main
+package viga
 
 import (
 	"log"
-	"os"
 
 	"github.com/Alfrederson/crebitos/templo"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
 )
 
-func main() {
+func Viga(pilares []string) {
 	templo.Inicializar()
-	pilares := os.Args[1:]
 	if len(pilares) < 1 {
-		panic("a viga sem pilares não tem apoio")
+		panic("a viga precisa de pelo menos dois pilares, do contrário cai.")
 	}
 	for i, v := range pilares {
 		log.Println("pilar", i, "=", v)
