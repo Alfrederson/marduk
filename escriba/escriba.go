@@ -2,7 +2,7 @@ package escriba
 
 import (
 	"os"
-	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/Alfrederson/crebitos/tabuas"
@@ -111,62 +111,52 @@ func Cunhar(tabuas []string, modos []int, op cunhagem) error {
 			return err
 		}
 		defer esseArquivo.Close()
+		if i == 0 {
+			if err := syscall.Flock(int(esseArquivo.Fd()), syscall.LOCK_EX); err != nil {
+				return err
+			}
+			defer syscall.Flock(int(esseArquivo.Fd()), syscall.LOCK_UN)
+		}
 		abertos[i] = &Tabua{esseArquivo}
 	}
 	return op(abertos)
 }
 
-func LerConta(clienteId string) *Conta {
-	c := &Conta{}
-	Cunhar(
-		[]string{
-			filepath.Join("tabuas", clienteId, "saldo"),
-		},
-		[]int{
-			ApenasLer,
-		}, func(t []*Tabua) error {
-			c.Limite = t[0].LerI64()
-			c.Saldo = t[0].LerI64()
-			return nil
-		})
-	return c
+func LerContaDaTabua(t *Tabua, out *Conta) {
+	out.Limite = t.LerI64()
+	out.Saldo = t.LerI64()
+}
+func EscreverContaNaTabua(t *Tabua, in *Conta) {
+	t.Seek(0, 0)
+	t.CunharI64(in.Limite)
+	t.CunharI64(in.Saldo)
+}
+func AnotarTransacaoNaTabua(t *Tabua, tipo string, valor int64, descricao string) {
+	t.CunharU8(tipo[0])
+	t.CunharI64(valor)
+	t.CunharMomento(time.Now())
+	t.CunharTexto(descricao)
+	t.CunharU8(uint8(1 + 8 + 15 + 1 + len(descricao)))
 }
 
-func MudarConta(clienteId string, c *Conta) {
-	Cunhar(
-		[]string{
-			filepath.Join("tabuas", clienteId, "saldo"),
-		},
-		[]int{
-			ApagarTudo,
-		}, func(t []*Tabua) error {
-			t[0].Seek(0, 0)
-			t[0].CunharI64(c.Limite)
-			t[0].CunharI64(c.Saldo)
-			return nil
-		},
-	)
-}
-
-func AnotarTransacao(clienteId string, tipo string, valor int64, descricao string) {
-	Cunhar(
-		[]string{
-			filepath.Join("tabuas", clienteId, "extrato"),
-		},
-		[]int{
-			BotarNoFinal,
-		},
-		func(t []*Tabua) error {
-			tabua := t[0]
-
-			tabua.CunharU8(tipo[0])
-			tabua.CunharI64(valor)
-			tabua.CunharMomento(time.Now())
-			tabua.CunharTexto(descricao)
-			tabua.CunharU8(uint8(1 + 8 + 15 + 1 + len(descricao)))
-			return nil
-		},
-	)
+func LerUltimasTransacoesDaTabua(t *Tabua, quantas int) ([]*tabuas.Transacao, error) {
+	resultado := make([]*tabuas.Transacao, 0, quantas)
+	t.Seek(-1, 2)
+	comprimento := int64(t.LerU8())
+	if comprimento == 0 {
+		return resultado, nil
+	}
+	for i := 0; i < quantas; i++ {
+		t.Seek(-comprimento-1, 1)
+		resultado = append(resultado, lerTransacaoDaTabua(t))
+		// o registro anterior não existe.
+		if t.Posicao()-comprimento-1 <= 0 {
+			break
+		}
+		t.Seek(-comprimento-1, 1)
+		comprimento = int64(t.LerU8())
+	}
+	return resultado, nil
 }
 
 func lerTransacaoDaTabua(tabua *Tabua) *tabuas.Transacao {
@@ -176,35 +166,4 @@ func lerTransacaoDaTabua(tabua *Tabua) *tabuas.Transacao {
 		RealizadaEm: tabua.LerMomento(),
 		Descricao:   tabua.LerTexto(),
 	}
-}
-
-func LerUltimasTransacoes(clienteId string, quantas int) ([]*tabuas.Transacao, error) {
-	resultado := make([]*tabuas.Transacao, 0, quantas)
-	err := Cunhar([]string{
-		filepath.Join("tabuas", clienteId, "extrato"),
-	}, []int{
-		ApenasLer,
-	}, func(t []*Tabua) error {
-		extrato := t[0]
-		extrato.Seek(-1, 2)
-		comprimento := int64(extrato.LerU8())
-		if comprimento == 0 {
-			return nil
-		}
-		for i := 0; i < quantas; i++ {
-			extrato.Seek(-comprimento-1, 1)
-			resultado = append(resultado, lerTransacaoDaTabua(extrato))
-			// o registro anterior não existe.
-			if extrato.Posicao()-comprimento-1 <= 0 {
-				break
-			}
-			extrato.Seek(-comprimento-1, 1)
-			comprimento = int64(extrato.LerU8())
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resultado, nil
 }

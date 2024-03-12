@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	devocao "github.com/Alfrederson/crebitos/devocao"
+	devoção "github.com/Alfrederson/crebitos/devocao"
 	"github.com/Alfrederson/crebitos/escriba"
 	"github.com/Alfrederson/crebitos/tabuas"
 )
@@ -93,7 +93,7 @@ func Inicializar() {
 	}
 }
 
-func Anotar(devoto *devocao.Devoto, clienteId string, t *tabuas.Transacao) (*ResultadoTransacao, error) {
+func Anotar(devoto *devoção.Devoto, clienteId string, t *tabuas.Transacao) (*ResultadoTransacao, error) {
 	_, tem := contas[clienteId]
 	if !tem {
 		return nil, tabuas.ErroTransacao{Codigo: tabuas.E_CLIENTE_DESCONHECIDO}
@@ -116,16 +116,14 @@ func Anotar(devoto *devocao.Devoto, clienteId string, t *tabuas.Transacao) (*Res
 	}, nil
 }
 
-func ConsultarExtrato(devoto *devocao.Devoto, clienteId string, num int) (*tabuas.Extrato, error) {
+func ConsultarExtrato(devoto *devoção.Devoto, clienteId string, num int) (*tabuas.Extrato, error) {
 	_, tem := contas[clienteId]
 	if !tem {
 		return nil, tabuas.ErroTransacao{Codigo: tabuas.E_CLIENTE_DESCONHECIDO}
 	}
-
 	extrato, err := devoto.ConsultarExtrato(clienteId, num)
 	if err != nil {
 		return nil, tabuas.ErroTransacao{Codigo: tabuas.E_SACERDOTE_FOI_AO_BANHEIRO}
 	}
-
 	return extrato, nil
 }

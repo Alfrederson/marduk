@@ -13,16 +13,9 @@ import (
 )
 
 func main() {
-	endereçoSacerdote := os.Args[1]
-	port := os.Args[2]
-
+	port := os.Args[1]
 	f := devoção.Devoto{}
-	err := f.Start(endereçoSacerdote)
-	if err != nil {
-		log.Fatalf("o devoto conseguiu escutar o sacerdote porque %v", err)
-	}
-	defer f.Stop()
-	log.Println("o devoto está escutando o sacerdote")
+	log.Println("o devoto está presente para anotar as transações")
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
